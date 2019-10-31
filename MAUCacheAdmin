@@ -223,7 +223,7 @@ DownloadUpdatePackages () {
 GetAppVersionFromXML () {
 # Returns the current app version from the XML collateral
 	XML="$1"".xml"
-	local APPVER=($(cd $SCRATCH_AREA && grep -A1 -m2 'Update Version' "$XML" | grep 'string' | sed -e 's,.*<string>\([^<]*\)</string>.*,\1,g'))
+    local APPVER=($(cd $SCRATCH_AREA && xmllint "$XML" --xpath "//key[.='Update Version']/following-sibling::*[1]/text()"))
 	if [ "$APPVER" == '' ]; then
 		echo "Legacy"
 	else
@@ -275,7 +275,7 @@ GetAppNameFromMAUID () {
 GetDownloadSize () {
 # Gets the size of a file based on its header, then strips non-numeric characters
 	URL="$1"
-	local CONTENTHTTPLENGTH=$(curl --head -s $URL | awk '/Content-Length/' | cut -d ' ' -f2)
+	local CONTENTHTTPLENGTH=$(curl --head -s $URL | awk '/Content-Length/ { print $NF }')
 	CONTENTLENGTH=$(echo ${CONTENTHTTPLENGTH//[!0-9]/})
 	echo $CONTENTLENGTH
 }
@@ -350,16 +350,16 @@ do
 	  if [ "$Folder" = "Legacy" ]; then
 			AppIdentifier=$(echo "$XML" | sed -e 's/.xml//g')
 			ver=""
-			BuildDate=$(grep -A1 'Date' "$XML" | grep 'date' | sed -e 's,.*<date>\([^<]*\)</date>.*,\1,g' | tail -1 | cut -d"T" -f1)
-			AppTitle=$(grep -A1 'Title' "$XML" | grep 'string' | sed -e 's,.*<string>\([^<]*\)</string>.*,\1,g' | tail -1)
+			BuildDate=$(xmllint "$XML" --xpath "//key[.='Date']/following-sibling::*[1]/text()" | cut -d"T" -f1)
+			AppTitle=$(xmllint "$XML" --xpath "//key[.='Title']/following-sibling::*[1]/text()")
 
 			printf '%-14s %-42s %-11s %s\n' \
 			"$AppIdentifier" "$AppTitle" "$BuildDate" "[$Folder]"
 	  else
 			AppIdentifier=$(echo "$XML" | sed -e 's/.xml//g')
-			ver=$(grep -A1 -m2 'Update Version' "$XML" | grep 'string' | sed -e 's,.*<string>\([^<]*\)</string>.*,\1,g')
-			BuildDate=$(grep -A1 'Date' "$XML" | grep 'date' | sed -e 's,.*<date>\([^<]*\)</date>.*,\1,g' | tail -1 | cut -d"T" -f1)
-			AppTitle=$(grep -A1 'Title' "$XML" | grep 'string' | sed -e 's,.*<string>\([^<]*\)</string>.*,\1,g' | tail -1)
+			ver=$(xmllint "$XML" --xpath "//key[.='Update Version']/following-sibling::*[1]/text()")
+			BuildDate=$(xmllint "$XML" --xpath "//key[.='Date']/following-sibling::*[1]/text()" | cut -d"T" -f1)
+			AppTitle=$(xmllint "$XML" --xpath "//key[.='Title']/following-sibling::*[1]/text()")
 
 			printf '%-14s %-42s %-11s %s\n' \
 			"$AppIdentifier" "$AppTitle" "$BuildDate" "[$Folder]"
