@@ -39,7 +39,9 @@ SCRATCH_AREA="$TMPDIR""MAUCache"
 
 # Variables for HipChat Notifications
 : "${HIPCHAT_NOTIFY:=false}"
-: "${HIPCHAT_ROOM_ID:=<PUT HIPCHAT ROOM ID HERE>}}"
+: "${HIPCHAT_NOTIFY_ADDRESS:=<PUT HIPCHAT ROOM ID HERE>}"
+: "${HIPCHAT_AUTH_TOKEN:=<PUT HIPCHAT AUTHTOKEN HERE>}"
+: "${HIPCHAT_ROOM_ID:=<PUT HIPCHAT ROOM ID HERE>}"
 
 # Variables for Slack Notifications
 : "${SLACK_NOTIFY:=false}"
@@ -54,440 +56,438 @@ SCRATCH_AREA="$TMPDIR""MAUCache"
 PLATFORM=$(uname -s)
 
 ShowUsage () {
-# Shows tool usage and parameters
-	echo $TOOL_NAME - $TOOL_VERSION
-	echo "Purpose: Downloads MAU collateral and packages from the Office CDN to a local web server"
-	echo "Usage: MAUCacheAdmin --CachePath:<path> [--CheckInterval:<minutes>] [--HTTPOnly] [--NoPackages] [--NoCollateral] [--ShowCollateral] [--CopyCollateralFrom:<from Folder>] [--CopyCollateralTo:<to Folder>] [--InsiderSupport]"
-	echo "Example: MAUCacheAdmin --CachePath:/Volumes/web/MAU/cache --CheckInterval:60"
-	echo "Example: MAUCacheAdmin --CachePath:/Volumes/web/MAU/cache --ShowCollateral"
-	echo "Example: MAUCacheAdmin --CachePath:/Volumes/web/MAU/cache --CopyCollateralFrom:15.27.16101000 --CopyCollateralTo:Production"
-	echo
-	exit 0
+    # Shows tool usage and parameters
+    echo $TOOL_NAME - $TOOL_VERSION
+    echo "Purpose: Downloads MAU collateral and packages from the Office CDN to a local web server"
+    echo "Usage: MAUCacheAdmin --CachePath:<path> [--CheckInterval:<minutes>] [--HTTPOnly] [--NoPackages] [--NoCollateral] [--ShowCollateral] [--CopyCollateralFrom:<from Folder>] [--CopyCollateralTo:<to Folder>] [--InsiderSupport]"
+    echo "Example: MAUCacheAdmin --CachePath:/Volumes/web/MAU/cache --CheckInterval:60"
+    echo "Example: MAUCacheAdmin --CachePath:/Volumes/web/MAU/cache --ShowCollateral"
+    echo "Example: MAUCacheAdmin --CachePath:/Volumes/web/MAU/cache --CopyCollateralFrom:15.27.16101000 --CopyCollateralTo:Production"
+    echo
+    exit 0
 }
 
 InitializeScratchArea () {
-# Creates and cleans temporary file area
-	if [ -d "$SCRATCH_AREA" ]; then
-		rm -i -f "$SCRATCH_AREA""*"
-	else
-		mkdir "$SCRATCH_AREA"
-	fi
+    # Creates and cleans temporary file area
+    if [ -d "$SCRATCH_AREA" ]; then
+        rm -i -f "$SCRATCH_AREA""*"
+    else
+        mkdir "$SCRATCH_AREA"
+    fi
 }
 
 InitializeCacheArea () {
-# Verifies cache area connectivity and cleans up as necessary
-	if [ ! -d "$CACHEPATH" ]; then
-		echo "Error: $CACHEPATH is not accessible"
-		echo
-		exit 1
-	fi
+    # Verifies cache area connectivity and cleans up as necessary
+    if [ ! -d "$CACHEPATH" ]; then
+        echo "Error: $CACHEPATH is not accessible"
+        echo
+        exit 1
+    fi
 }
 
 ResolveDownloadUrl () {
-# Selects either HTTPS from the Office CDN origin, or HTTP directly from Akamai
-	if [ "$HTTPONLY" ]; then
-		HTTPURL=(${1/https/http})
-		FILEURL=(${HTTPURL/officecdn.microsoft.com/officecdn-microsoft-com.akamaized.net})
-	else
-		FILEURL="$1"
-	fi
-	echo "$FILEURL"
+    # Selects either HTTPS from the Office CDN origin, or HTTP directly from Akamai
+    if [ "$HTTPONLY" ]; then
+        HTTPURL=(${1/https/http})
+        FILEURL=(${HTTPURL/officecdn.microsoft.com/officecdn-microsoft-com.akamaized.net})
+    else
+        FILEURL="$1"
+    fi
+    echo "$FILEURL"
 }
 
 BuildApplicationArray () {
-# Builds an array of all the MAU-enabled applications that we care about
-	MAUAPP[0]="$MAUID_MAU3X"
-	MAUAPP[1]="$MAUID_MAU4X"
-	MAUAPP[2]="$MAUID_WORD2019"
-	MAUAPP[3]="$MAUID_EXCEL2019"
-	MAUAPP[4]="$MAUID_POWERPOINT2019"
-	MAUAPP[5]="$MAUID_OUTLOOK2019"
-	MAUAPP[6]="$MAUID_ONENOTE2019"
-	MAUAPP[7]="$MAUID_WORD2016"
-	MAUAPP[8]="$MAUID_EXCEL2016"
-	MAUAPP[9]="$MAUID_POWERPOINT2016"
-	MAUAPP[10]="$MAUID_OUTLOOK2016"
-	MAUAPP[11]="$MAUID_ONENOTE2016"
-	MAUAPP[12]="$MAUID_SKYPE2016"
-	MAUAPP[13]="$MAUID_INTUNECP"
-	MAUAPP[14]="$MAUID_REMOTEDESKTOP10"
-	MAUAPP[15]="$MAUID_ONEDRIVE"
-	MAUAPP[16]="$MAUID_DEFENDER"
+    # Builds an array of all the MAU-enabled applications that we care about
+    MAUAPP[0]="$MAUID_MAU3X"
+    MAUAPP[1]="$MAUID_MAU4X"
+    MAUAPP[2]="$MAUID_WORD2019"
+    MAUAPP[3]="$MAUID_EXCEL2019"
+    MAUAPP[4]="$MAUID_POWERPOINT2019"
+    MAUAPP[5]="$MAUID_OUTLOOK2019"
+    MAUAPP[6]="$MAUID_ONENOTE2019"
+    MAUAPP[7]="$MAUID_WORD2016"
+    MAUAPP[8]="$MAUID_EXCEL2016"
+    MAUAPP[9]="$MAUID_POWERPOINT2016"
+    MAUAPP[10]="$MAUID_OUTLOOK2016"
+    MAUAPP[11]="$MAUID_ONENOTE2016"
+    MAUAPP[12]="$MAUID_SKYPE2016"
+    MAUAPP[13]="$MAUID_INTUNECP"
+    MAUAPP[14]="$MAUID_REMOTEDESKTOP10"
+    MAUAPP[15]="$MAUID_ONEDRIVE"
+    MAUAPP[16]="$MAUID_DEFENDER"
 }
 
 BuildCollateralArray () {
-# Builds an array of MAU collateral file-paths which we'll use later for downloading XML and CAT files
-	DOWNLOADARRAY[0]="$1"$MAUID_MAU3X
-	DOWNLOADARRAY[1]="$1"$MAUID_MAU4X
-	DOWNLOADARRAY[2]="$1"$MAUID_WORD2019
-	DOWNLOADARRAY[3]="$1"$MAUID_EXCEL2019
-	DOWNLOADARRAY[4]="$1"$MAUID_POWERPOINT2019
-	DOWNLOADARRAY[5]="$1"$MAUID_OUTLOOK2019
-	DOWNLOADARRAY[6]="$1"$MAUID_ONENOTE2019
-	DOWNLOADARRAY[7]="$1"$MAUID_WORD2016
-	DOWNLOADARRAY[8]="$1"$MAUID_EXCEL2016
-	DOWNLOADARRAY[9]="$1"$MAUID_POWERPOINT2016
-	DOWNLOADARRAY[10]="$1"$MAUID_OUTLOOK2016
-	DOWNLOADARRAY[11]="$1"$MAUID_ONENOTE2016
-	DOWNLOADARRAY[12]="$1"$MAUID_SKYPE2016
-	DOWNLOADARRAY[13]="$1"$MAUID_INTUNECP
-	DOWNLOADARRAY[14]="$1"$MAUID_REMOTEDESKTOP10
-	DOWNLOADARRAY[15]="$1"$MAUID_ONEDRIVE
-	DOWNLOADARRAY[16]="$1"$MAUID_DEFENDER
+    # Builds an array of MAU collateral file-paths which we'll use later for downloading XML and CAT files
+    DOWNLOADARRAY[0]="$1"$MAUID_MAU3X
+    DOWNLOADARRAY[1]="$1"$MAUID_MAU4X
+    DOWNLOADARRAY[2]="$1"$MAUID_WORD2019
+    DOWNLOADARRAY[3]="$1"$MAUID_EXCEL2019
+    DOWNLOADARRAY[4]="$1"$MAUID_POWERPOINT2019
+    DOWNLOADARRAY[5]="$1"$MAUID_OUTLOOK2019
+    DOWNLOADARRAY[6]="$1"$MAUID_ONENOTE2019
+    DOWNLOADARRAY[7]="$1"$MAUID_WORD2016
+    DOWNLOADARRAY[8]="$1"$MAUID_EXCEL2016
+    DOWNLOADARRAY[9]="$1"$MAUID_POWERPOINT2016
+    DOWNLOADARRAY[10]="$1"$MAUID_OUTLOOK2016
+    DOWNLOADARRAY[11]="$1"$MAUID_ONENOTE2016
+    DOWNLOADARRAY[12]="$1"$MAUID_SKYPE2016
+    DOWNLOADARRAY[13]="$1"$MAUID_INTUNECP
+    DOWNLOADARRAY[14]="$1"$MAUID_REMOTEDESKTOP10
+    DOWNLOADARRAY[15]="$1"$MAUID_ONEDRIVE
+    DOWNLOADARRAY[16]="$1"$MAUID_DEFENDER
 }
 
 DownloadCollateralFiles () {
-# Downloads XML/CAT collateral files
-	for i in "$@"
-	do
-		echo Downloading collateral file: "$i"
-		(cd "$SCRATCH_AREA" && curl --progress-bar --remote-name --location "$i.{xml,cat}" && curl --progress-bar --remote-name --location "$i-chk.xml")
-	done
+    # Downloads XML/CAT collateral files
+    for i in "$@"
+    do
+        echo Downloading collateral file: "$i"
+        (cd "$SCRATCH_AREA" && curl --progress-bar --remote-name --location "$i.{xml,cat}" && curl --progress-bar --remote-name --location "$i-chk.xml")
+    done
 }
 
 DownloadProductionBuildSource () {
-# Downloads list of official production builds
-	local CHANNELURL="$1"
-	(cd "$SCRATCH_AREA" && curl --progress-bar --remote-name --location "$CHANNELURL""builds.txt")
-	IFS=$'\n' read -d '' -r -a PRODBUILDS < "$SCRATCH_AREA""/builds.txt"
-	if [[ "$PRODBUILDS[0]" == "1"* ]]; then
-		return
-	else
-		PRODBUILDS=""
-	fi
+    # Downloads list of official production builds
+    local CHANNELURL="$1"
+    (cd "$SCRATCH_AREA" && curl --progress-bar --remote-name --location "$CHANNELURL""builds.txt")
+    IFS=$'\n' read -d '' -r -a PRODBUILDS < "$SCRATCH_AREA""/builds.txt"
+    if [[ "$PRODBUILDS[0]" == "1"* ]]; then
+        return
+    else
+        PRODBUILDS=""
+    fi
 }
 
 ArchiveCollateralFiles () {
-# Archives collateral files in the cache folder
-	local APPID="$1"
-	if [ $NOCOLLATERAL ]; then
-		return
-	else
-		if [ ! -d "$CACHEPATH/collateral" ]; then
-			mkdir "$CACHEPATH/collateral"
-		fi
-		local APPVER=$(GetAppVersionFromXML "$APPID")
-		if [ ! -d "$CACHEPATH/collateral/$APPVER" ]; then
-			mkdir "$CACHEPATH/collateral/$APPVER"
-		fi
-		cp "$SCRATCH_AREA/$APPID-chk.xml" "$CACHEPATH/collateral/$APPVER"
-		cp "$SCRATCH_AREA/$APPID.xml" "$CACHEPATH/collateral/$APPVER"
-		cp "$SCRATCH_AREA/$APPID.cat" "$CACHEPATH/collateral/$APPVER"
-	fi
+    # Archives collateral files in the cache folder
+    local APPID="$1"
+    if [ $NOCOLLATERAL ]; then
+        return
+    else
+        if [ ! -d "$CACHEPATH/collateral" ]; then
+            mkdir "$CACHEPATH/collateral"
+        fi
+        local APPVER=$(GetAppVersionFromXML "$APPID")
+        if [ ! -d "$CACHEPATH/collateral/$APPVER" ]; then
+            mkdir "$CACHEPATH/collateral/$APPVER"
+        fi
+        cp "$SCRATCH_AREA/$APPID-chk.xml" "$CACHEPATH/collateral/$APPVER"
+        cp "$SCRATCH_AREA/$APPID.xml" "$CACHEPATH/collateral/$APPVER"
+        cp "$SCRATCH_AREA/$APPID.cat" "$CACHEPATH/collateral/$APPVER"
+    fi
 }
 
 DownloadUpdatePackages () {
-# Logic to evaluate what files need to be downloaded into the cache
-	APPID="$1"
-	APPNAME=$(GetAppNameFromMAUID "$1")
-	if [ "$APPID" == "0409MSOF14" ] || [ "$APPID" == "0409UCCP14" ]; then
-		LOCATION=($(cd $SCRATCH_AREA && (grep -o 'http[^\"]*dmg' $APPID".xml") | sort | uniq))
-	else
-		LOCATION=($(cd $SCRATCH_AREA && (grep -o 'http[^\"]*pkg' $APPID".xml") | sort | uniq))
-	fi
-	for i in "${LOCATION[@]}"
-	do
-		SKIPDOWNLOAD=false
-		PACKAGENAME=$(basename "$i")
-		if [[ $PACKAGENAME == *"Delta"* ]]; then
-			for PRODVER in "${PRODBUILDS[@]}"
-			do
-				if [[ $PACKAGENAME == *"$PRODVER""_to_"* ]]; then
-					SKIPDOWNLOAD=false
-					break
-				else
-					SKIPDOWNLOAD=true
-				fi
-			done
-		fi
-		if [ "$SKIPDOWNLOAD" == false ]; then
-			PACKAGEURL=$(ResolveDownloadUrl "$i")
-			PACKAGESIZECDN=$(GetDownloadSize "$i")
-			PACKAGESIZELOCAL=$(GetLocalSize "$PACKAGENAME")
-			PACKAGESIZECDNMEG=$(expr $PACKAGESIZECDN / 1024 / 1024)
-			if [ -f "$CACHEPATH/$PACKAGENAME" ]; then
-				if [ "$PACKAGESIZELOCAL" == "$PACKAGESIZECDN" ]; then
-					echo Package "$i" already exists in the cache ...skipping
-				else
-					echo Package "$i" exists in the cache but is corrupt ...removing
-					(cd "$CACHEPATH" && rm -f "$i")
-					DownloadPackage "$PACKAGEURL" "$APPNAME" "$PACKAGESIZECDNMEG"
-				fi
-			else
-				DownloadPackage "$PACKAGEURL" "$APPNAME" "$PACKAGESIZECDNMEG"
-			fi
-		fi
-	done
+    # Logic to evaluate what files need to be downloaded into the cache
+    APPID="$1"
+    APPNAME=$(GetAppNameFromMAUID "$1")
+    if [ "$APPID" == "0409MSOF14" ] || [ "$APPID" == "0409UCCP14" ]; then
+        LOCATION=($(cd $SCRATCH_AREA && (grep -o 'http[^\"]*dmg' $APPID".xml") | sort | uniq))
+    else
+        LOCATION=($(cd $SCRATCH_AREA && (grep -o 'http[^\"]*pkg' $APPID".xml") | sort | uniq))
+    fi
+    for i in "${LOCATION[@]}"
+    do
+        SKIPDOWNLOAD=false
+        PACKAGENAME=$(basename "$i")
+        if [[ $PACKAGENAME == *"Delta"* ]]; then
+            for PRODVER in "${PRODBUILDS[@]}"
+            do
+                if [[ $PACKAGENAME == *"$PRODVER""_to_"* ]]; then
+                    SKIPDOWNLOAD=false
+                    break
+                else
+                    SKIPDOWNLOAD=true
+                fi
+            done
+        fi
+        if [ "$SKIPDOWNLOAD" == false ]; then
+            PACKAGEURL=$(ResolveDownloadUrl "$i")
+            PACKAGESIZECDN=$(GetDownloadSize "$i")
+            PACKAGESIZELOCAL=$(GetLocalSize "$PACKAGENAME")
+            PACKAGESIZECDNMEG=$(expr $PACKAGESIZECDN / 1024 / 1024)
+            if [ -f "$CACHEPATH/$PACKAGENAME" ]; then
+                if [ "$PACKAGESIZELOCAL" == "$PACKAGESIZECDN" ]; then
+                    echo Package "$i" already exists in the cache ...skipping
+                else
+                    echo Package "$i" exists in the cache but is corrupt ...removing
+                    (cd "$CACHEPATH" && rm -f "$i")
+                    DownloadPackage "$PACKAGEURL" "$APPNAME" "$PACKAGESIZECDNMEG"
+                fi
+            else
+                DownloadPackage "$PACKAGEURL" "$APPNAME" "$PACKAGESIZECDNMEG"
+            fi
+        fi
+    done
 }
 
 GetAppVersionFromXML () {
-# Returns the current app version from the XML collateral
-	XML="$1"".xml"
-    local APPVER=($(cd $SCRATCH_AREA && xmllint "$XML" --xpath "//key[.='Update Version']/following-sibling::*[1]/text()"))
-	if [ "$APPVER" == '' ]; then
-		echo "Legacy"
-	else
-		echo "$APPVER"
-	fi
+    # Returns the current app version from the XML collateral
+    XML="$1"".xml"
+    local APPVER=($(cd $SCRATCH_AREA && sed -n '/Update Version/{n;p;}' "$XML" | sed -e 's/.*>\([^<]*\)<.*/\1/'))
+    if [ "$APPVER" == '' ]; then
+        echo "Legacy"
+    else
+        echo "$APPVER"
+    fi
 }
 
 GetAppNameFromMAUID () {
-# Performs a reverse look-up from MAUID to friendly name
-	case "$1" in
-		$MAUID_MAU3X)			APPNAME="MAU 3.x"
-								;;
-		$MAUID_MAU4X)			APPNAME="MAU 4.x"
-								;;
-		$MAUID_WORD2019)		APPNAME="Word 2019"
-								;;
-		$MAUID_EXCEL2019)		APPNAME="Excel 2019"
-								;;
-		$MAUID_POWERPOINT2019)		APPNAME="PowerPoint 2019"
-								;;
-		$MAUID_OUTLOOK2019)		APPNAME="Outlook 2019"
-								;;
-		$MAUID_ONENOTE2019)		APPNAME="OneNote 2019"
-								;;
-		$MAUID_WORD2016)		APPNAME="Word 2016"
-								;;
-		$MAUID_EXCEL2016)		APPNAME="Excel 2016"
-								;;
-		$MAUID_POWERPOINT2016)		APPNAME="PowerPoint 2016"
-								;;
-		$MAUID_OUTLOOK2016)		APPNAME="Outlook 2016"
-								;;
-		$MAUID_ONENOTE2016)		APPNAME="OneNote 2016"
-								;;
-		$MAUID_SKYPE2016)		APPNAME="Skype for Business 2016"
-								;;
-		$MAUID_INTUNECP)		APPNAME="Intune Company Portal"
-								;;
-		$MAUID_REMOTEDESKTOP10)		APPNAME="Remote Desktop v10"
-								;;
-		$MAUID_ONEDRIVE)		APPNAME="OneDrive"
-								;;
-		$MAUID_DEFENDER)		APPNAME="Defender ATP"
-								;;
-	esac
-	echo "$APPNAME"
+    # Performs a reverse look-up from MAUID to friendly name
+    case "$1" in
+        $MAUID_MAU3X)           APPNAME="MAU 3.x"
+            ;;
+        $MAUID_MAU4X)           APPNAME="MAU 4.x"
+            ;;
+        $MAUID_WORD2019)        APPNAME="Word 2019"
+            ;;
+        $MAUID_EXCEL2019)       APPNAME="Excel 2019"
+            ;;
+        $MAUID_POWERPOINT2019)  APPNAME="PowerPoint 2019"
+            ;;
+        $MAUID_OUTLOOK2019)     APPNAME="Outlook 2019"
+            ;;
+        $MAUID_ONENOTE2019)     APPNAME="OneNote 2019"
+            ;;
+        $MAUID_WORD2016)        APPNAME="Word 2016"
+            ;;
+        $MAUID_EXCEL2016)       APPNAME="Excel 2016"
+            ;;
+        $MAUID_POWERPOINT2016)  APPNAME="PowerPoint 2016"
+            ;;
+        $MAUID_OUTLOOK2016)     APPNAME="Outlook 2016"
+            ;;
+        $MAUID_ONENOTE2016)     APPNAME="OneNote 2016"
+            ;;
+        $MAUID_SKYPE2016)       APPNAME="Skype for Business 2016"
+            ;;
+        $MAUID_INTUNECP)        APPNAME="Intune Company Portal"
+            ;;
+        $MAUID_REMOTEDESKTOP10) APPNAME="Remote Desktop v10"
+            ;;
+        $MAUID_ONEDRIVE)        APPNAME="OneDrive"
+            ;;
+        $MAUID_DEFENDER)        APPNAME="Defender ATP"
+            ;;
+    esac
+    echo "$APPNAME"
 }
 
 GetDownloadSize () {
-# Gets the size of a file based on its header, then strips non-numeric characters
-	URL="$1"
-	local CONTENTHTTPLENGTH=$(curl --head -s $URL | awk '/Content-Length/ { print $NF }')
-	CONTENTLENGTH=$(echo ${CONTENTHTTPLENGTH//[!0-9]/})
-	echo $CONTENTLENGTH
+    # Gets the size of a file based on its header, then strips non-numeric characters
+    URL="$1"
+    local CONTENTHTTPLENGTH=$(curl --head -s $URL | awk '/Content-Length/ { print $NF }')
+    CONTENTLENGTH=$(echo ${CONTENTHTTPLENGTH//[!0-9]/})
+    echo $CONTENTLENGTH
 }
 
 GetLocalSize () {
-# Gets the size of a file from the local disk
-	local FILENAME="$1"
-	# The stat command works differently between macOS and other Linux platforms like RHEL
-	if [ "$PLATFORM" == "Darwin" ]; then
-		local FILELENGTH=($(cd "$CACHEPATH" && stat -qf%z "$FILENAME"))
-	else
-		local FILELENGTH=($(cd "$CACHEPATH" && stat -c%s "$FILENAME"))
-	fi
-	echo $FILELENGTH
+    # Gets the size of a file from the local disk
+    local FILENAME="$1"
+    # The stat command works differently between macOS and other Linux platforms like RHEL
+    if [ "$PLATFORM" == "Darwin" ]; then
+        local FILELENGTH=($(cd "$CACHEPATH" && stat -qf%z "$FILENAME"))
+    else
+        local FILELENGTH=($(cd "$CACHEPATH" && stat -c%s "$FILENAME"))
+    fi
+    echo $FILELENGTH
 }
 
 HipChatNotify () {
-# Send Alert to HipChat Room Specified in Global Variable when Package is Downloaded
-	if [ $HIPCHAT_NOTIFY == true ]; then
-		echo "New Package Detected: $PACKAGE"
-		curl -v -k -d "room_id=${HIPCHAT_ROOM_ID}&from=ServerAlert&message=""<b>MAU Server Alert</b> - New Package Downloaded:<b> ${PACKAGE}</b>""&color=purple" ${HIPCHAT_NOTIFY_ADDRESS}/message?auth_token=${HIPCHAT_AUTH_TOKEN}&format=json
-	fi
+    # Send Alert to HipChat Room Specified in Global Variable when Package is Downloaded
+    if [ $HIPCHAT_NOTIFY == true ]; then
+        echo "New Package Detected: $PACKAGE"
+        curl -v -k -d "room_id=${HIPCHAT_ROOM_ID}&from=ServerAlert&message=""<b>MAU Server Alert</b> - New Package Downloaded:<b> ${PACKAGE}</b>""&color=purple" ${HIPCHAT_NOTIFY_ADDRESS}/message?auth_token=${HIPCHAT_AUTH_TOKEN}&format=json
+    fi
 }
 
 SlackNotify () {
-# Send Alert to Slack Webhook in Global Variable when Package is Downloaded
-	if [ $SLACK_NOTIFY == true ]; then
-		echo "New Package Detected: $PACKAGE"
-		curl -X POST -H 'Content-type: application/json' --data '{"username":"MAUCacheAdmin","icon_url":"'"$SLACK_ICON_URL"'","text":"New Package Downloaded: '"$PACKAGE"'"}' $SLACK_WEBHOOK_URL
-	fi
+    # Send Alert to Slack Webhook in Global Variable when Package is Downloaded
+    if [ $SLACK_NOTIFY == true ]; then
+        echo "New Package Detected: $PACKAGE"
+        curl -X POST -H 'Content-type: application/json' --data '{"username":"MAUCacheAdmin","icon_url":"'"$SLACK_ICON_URL"'","text":"New Package Downloaded: '"$PACKAGE"'"}' $SLACK_WEBHOOK_URL
+    fi
 }
 
 TeamsNotify () {
-# Send Alert to Teams Webhook in Global Variable when Package is Downloaded
-	if [ $TEAMS_NOTIFY == true ]; then
-		echo "New Package Detected: $PACKAGE"
-		curl -H 'Content-type: application/json' -d '{"text":"New Package Downloaded: '"$PACKAGE"'"}' $TEAMS_WEBHOOK_URL
-	fi
+    # Send Alert to Teams Webhook in Global Variable when Package is Downloaded
+    if [ $TEAMS_NOTIFY == true ]; then
+        echo "New Package Detected: $PACKAGE"
+        curl -H 'Content-type: application/json' -d '{"text":"New Package Downloaded: '"$PACKAGE"'"}' $TEAMS_WEBHOOK_URL
+    fi
 }
 
 DownloadPackage () {
-# Downloads the specified update package
-	URL="$1"
-	APPLICATION="$2"
-	SIZE="$3"
-	PACKAGE=$(basename "$1")
-	HipChatNotify
-	SlackNotify
-	TeamsNotify
-	echo "==================================================="
-	echo Application: "$APPLICATION"
-	echo Package:     "$PACKAGE"
-	echo Size:        "$SIZE" MB
-	echo URL:         "$URL"
-	(cd "$CACHEPATH" && curl --progress-bar --remote-name --location $URL)
+    # Downloads the specified update package
+    URL="$1"
+    APPLICATION="$2"
+    SIZE="$3"
+    PACKAGE=$(basename "$1")
+    HipChatNotify
+    SlackNotify
+    TeamsNotify
+    echo "==================================================="
+    echo Application: "$APPLICATION"
+    echo Package:     "$PACKAGE"
+    echo Size:        "$SIZE" MB
+    echo URL:         "$URL"
+    (cd "$CACHEPATH" && curl --progress-bar --remote-name --location $URL)
 }
 
 ShowCollateral () {
-# Shows collateral information of the downloaded collateral files
-echo "----------------------------------------------------------------------------------------"
-printf '%-14s %-42s %-11s %s\n' \
+    # Shows collateral information of the downloaded collateral files
+    echo "----------------------------------------------------------------------------------------"
+    printf '%-14s %-42s %-11s %s\n' \
         "App ID" "Application" "Build Date" "[Folder]"
-echo "----------------------------------------------------------------------------------------"
+            echo "----------------------------------------------------------------------------------------"
 
-for d in "$CACHEPATH/collateral/"*;
-do
-  cd "$d/";
-  if ls *.xml >/dev/null 2>&1; then
-	  for XML in *.xml;
-	  do
-	  Folder=$(echo "$d" | awk -F "/" '{print $NF}')
-	  if [ "$Folder" = "Legacy" ]; then
-			AppIdentifier=$(echo "$XML" | sed -e 's/.xml//g')
-			ver=""
-			BuildDate=$(xmllint "$XML" --xpath "//key[.='Date']/following-sibling::*[1]/text()" | cut -d"T" -f1)
-			AppTitle=$(xmllint "$XML" --xpath "//key[.='Title']/following-sibling::*[1]/text()")
+            for d in "$CACHEPATH/collateral/"*;
+            do
+                cd "$d/";
+                if ls *.xml >/dev/null 2>&1; then
+                    for XML in *.xml;
+                    do
+                        Folder=$(echo "$d" | awk -F "/" '{print $NF}')
+                        if [ "$Folder" = "Legacy" ]; then
+                            AppIdentifier=$(echo "$XML" | sed -e 's/.xml//g')
+                            ver=""
+                            BuildDate=$(sed -n '/Date/{n;p;}' "$XML" | sed -e 's/.*>\([^T]*\)T.*/\1/')
+                            AppTitle=$(grep -A1 'Title' "$XML" | grep 'string' | sed -e 's,.*<string>\([^<]*\)</string>.*,\1,g' | tail -1)
 
-			printf '%-14s %-42s %-11s %s\n' \
-			"$AppIdentifier" "$AppTitle" "$BuildDate" "[$Folder]"
-	  else
-			AppIdentifier=$(echo "$XML" | sed -e 's/.xml//g')
-			ver=$(xmllint "$XML" --xpath "//key[.='Update Version']/following-sibling::*[1]/text()")
-			BuildDate=$(xmllint "$XML" --xpath "//key[.='Date']/following-sibling::*[1]/text()" | cut -d"T" -f1)
-			AppTitle=$(xmllint "$XML" --xpath "//key[.='Title']/following-sibling::*[1]/text()")
+                            printf '%-14s %-42s %-11s %s\n' "$AppIdentifier" "$AppTitle" "$BuildDate" "[$Folder]"
+                        else
+                            AppIdentifier=$(echo "$XML" | sed -e 's/.xml//g')
+                            ver=$(grep -A1 -m2 'Update Version' "$XML" | grep 'string' | sed -e 's,.*<string>\([^<]*\)</string>.*,\1,g')
+                            BuildDate=$(grep -A1 'Date' "$XML" | grep 'date' | sed -e 's,.*<date>\([^<]*\)</date>.*,\1,g' | tail -1 | cut -d"T" -f1)
+                            AppTitle=$(grep -A1 'Title' "$XML" | grep 'string' | sed -e 's,.*<string>\([^<]*\)</string>.*,\1,g' | tail -1)
 
-			printf '%-14s %-42s %-11s %s\n' \
-			"$AppIdentifier" "$AppTitle" "$BuildDate" "[$Folder]"
-	  fi
-	  done
-	else
-		Folder=$(echo "$d" | awk -F "/" '{print $NF}')
+                            printf '%-14s %-42s %-11s %s\n' "$AppIdentifier" "$AppTitle" "$BuildDate" "[$Folder]"
+                        fi
+                    done
+                else
+                    Folder=$(echo "$d" | awk -F "/" '{print $NF}')
 
-		printf '%-14s %-42s %-11s %s\n' \
-        "" "" "" "[$Folder]"
-	fi
-done
-echo "----------------------------------------------------------------------------------------"
-exit 0
-}
+                    printf '%-14s %-42s %-11s %s\n' \
+                        "" "" "" "[$Folder]"
+                fi
+            done
+            echo "----------------------------------------------------------------------------------------"
+            exit 0
+        }
 
-CopyCollateral () {
-# Copies collateral files from one folder to another.
-	COPYCOLLATERALFROM=$(echo $COPYCOLLATERALFROM | sed 's/[][]//g')
-	COPYCOLLATERALTO=$(echo $COPYCOLLATERALTO | sed 's/[][]//g')
-	echo "Copying collateral files FROM:[$COPYCOLLATERALFROM] folder TO:[$COPYCOLLATERALTO] folder."
-	cp "$CACHEPATH/collateral/$COPYCOLLATERALFROM/"* "$CACHEPATH/collateral/$COPYCOLLATERALTO/"
-	exit 0
-}
+    CopyCollateral () {
+        # Copies collateral files from one folder to another.
+        COPYCOLLATERALFROM=$(echo $COPYCOLLATERALFROM | sed 's/[][]//g')
+        COPYCOLLATERALTO=$(echo $COPYCOLLATERALTO | sed 's/[][]//g')
+        echo "Copying collateral files FROM:[$COPYCOLLATERALFROM] folder TO:[$COPYCOLLATERALTO] folder."
+        cp "$CACHEPATH/collateral/$COPYCOLLATERALFROM/"* "$CACHEPATH/collateral/$COPYCOLLATERALTO/"
+        exit 0
+    }
 
 
 # Evaluate command-line arguments
 if [[ $# = 0 ]]; then
-	ShowUsage
+    ShowUsage
 else
-	for KEY in "$@"
-	do
-	case $KEY in
-    	--Help|-h|--help)
-    	ShowUsage
-    	shift # past argument
-    	;;
-    	--CachePath:*|-c:*|--cachepath:*)
-    	CACHEPATH=${KEY#*:}
-    	shift # past argument
-    	;;
-    	--CheckInterval:*|-i:*|--checkinterval:*)
-    	CHECKINTERVAL=${KEY#*:}
-    	shift # past argument
-    	;;
-    	--HTTPOnly|-h|--httponly)
-    	HTTPONLY=true
-    	shift # past argument
-    	;;
-    	--NoPackages|-np|--nopackages)
-    	NOPACKAGES=true
-    	shift # past argument
-    	;;
-    	--NoCollateral|-n|--nocollateral)
-    	NOCOLLATERAL=true
-    	shift # past argument
-    	;;
-    	--ShowCollateral|-sc|--showcollateral)
-    	ShowCollateral
-    	shift # past argument
-    	;;
-    	--CopyCollateralFrom:*|-ccf:*|--copycollateralfrom:*)
-    	COPYCOLLATERALFROM=${KEY#*:}
-    	shift # past argument
-    	;;
-    	--CopyCollateralTo:*|-cct:*|--copycollateralto:*)
-    	COPYCOLLATERALTO=${KEY#*:}
-    	CopyCollateral
-    	shift # past argument
-    	;;
-    	--InsiderSupport|-is|--insidersupport)
-    	INSIDER=true
-    	shift # past argument
-    	;;
-    	*)
-    	ShowUsage
-    	;;
-	esac
-	shift # past argument or value
-	done
+    for KEY in "$@"
+    do
+        case $KEY in
+            --Help|-h|--help)
+                ShowUsage
+                shift # past argument
+                ;;
+            --CachePath:*|-c:*|--cachepath:*)
+                CACHEPATH=${KEY#*:}
+                shift # past argument
+                ;;
+            --CheckInterval:*|-i:*|--checkinterval:*)
+                CHECKINTERVAL=${KEY#*:}
+                shift # past argument
+                ;;
+            --HTTPOnly|-h|--httponly)
+                HTTPONLY=true
+                shift # past argument
+                ;;
+            --NoPackages|-np|--nopackages)
+                NOPACKAGES=true
+                shift # past argument
+                ;;
+            --NoCollateral|-n|--nocollateral)
+                NOCOLLATERAL=true
+                shift # past argument
+                ;;
+            --ShowCollateral|-sc|--showcollateral)
+                ShowCollateral
+                shift # past argument
+                ;;
+            --CopyCollateralFrom:*|-ccf:*|--copycollateralfrom:*)
+                COPYCOLLATERALFROM=${KEY#*:}
+                shift # past argument
+                ;;
+            --CopyCollateralTo:*|-cct:*|--copycollateralto:*)
+                COPYCOLLATERALTO=${KEY#*:}
+                CopyCollateral
+                shift # past argument
+                ;;
+            --InsiderSupport|-is|--insidersupport)
+                INSIDER=true
+                shift # past argument
+                ;;
+            *)
+                ShowUsage
+                ;;
+        esac
+        shift # past argument or value
+    done
 fi
 
 ## Main
 while :
 do
-	# Get a clean area for writing temporary files
-	InitializeScratchArea
-	# Verify that the cache area is ready to go
-	InitializeCacheArea
-	# Build channel array
-	CHANNELS[0]="$CHANNEL_COLLATERAL_PROD"
-	if [ $INSIDER ]; then
-		CHANNELS[1]="$CHANNEL_COLLATERAL_INSIDERSLOW"
-		CHANNELS[2]="$CHANNEL_COLLATERAL_INSIDERFAST"
-	fi
-	# Routine for all channels in the array
-	for c in "${CHANNELS[@]}"
-	do
-		# Resolve collateral download URL
-		COLLATERALURL=$(ResolveDownloadUrl "$c")
-		# Download list of production builds as source
-		DownloadProductionBuildSource "$COLLATERALURL"
-		# Build an array of the collateral files to download
-		BuildCollateralArray "$COLLATERALURL"
-		# Download collateral files for each application
-		DownloadCollateralFiles "${DOWNLOADARRAY[@]}"
-		# Build an array of all MAU-enabled applications
-		BuildApplicationArray
-		# Build an array of each package location and download those packages
-		for a in "${MAUAPP[@]}"
-		do
-			ArchiveCollateralFiles "$a"
-			if [ ! $NOPACKAGES ]; then
-				DownloadUpdatePackages "$a" "$c"
-			fi
-		done
-	done
+    # Get a clean area for writing temporary files
+    InitializeScratchArea
+    # Verify that the cache area is ready to go
+    InitializeCacheArea
+    # Build channel array
+    CHANNELS[0]="$CHANNEL_COLLATERAL_PROD"
+    if [ $INSIDER ]; then
+        CHANNELS[1]="$CHANNEL_COLLATERAL_INSIDERSLOW"
+        CHANNELS[2]="$CHANNEL_COLLATERAL_INSIDERFAST"
+    fi
+    # Routine for all channels in the array
+    for c in "${CHANNELS[@]}"
+    do
+        # Resolve collateral download URL
+        COLLATERALURL=$(ResolveDownloadUrl "$c")
+        # Download list of production builds as source
+        DownloadProductionBuildSource "$COLLATERALURL"
+        # Build an array of the collateral files to download
+        BuildCollateralArray "$COLLATERALURL"
+        # Download collateral files for each application
+        DownloadCollateralFiles "${DOWNLOADARRAY[@]}"
+        # Build an array of all MAU-enabled applications
+        BuildApplicationArray
+        # Build an array of each package location and download those packages
+        for a in "${MAUAPP[@]}"
+        do
+            ArchiveCollateralFiles "$a"
+            if [ ! $NOPACKAGES ]; then
+                DownloadUpdatePackages "$a" "$c"
+            fi
+        done
+    done
 
-	# If CheckInterval wasn't specified on the command-line, just run once
-	if [ "$CHECKINTERVAL" == '' ]; then
-		exit 0
-	else
-	# Otherwise, sleep for the specified number of minutes before checking again
-		echo "Sleeping for $CHECKINTERVAL minutes..."
-		CHECKINTERVALSECS=$(expr $CHECKINTERVAL \* 60)
-		# Wait until the next check interval
-		sleep "$CHECKINTERVALSECS"
-	fi
+    # If CheckInterval wasn't specified on the command-line, just run once
+    if [ "$CHECKINTERVAL" == '' ]; then
+        exit 0
+    else
+        # Otherwise, sleep for the specified number of minutes before checking again
+        echo "Sleeping for $CHECKINTERVAL minutes..."
+        CHECKINTERVALSECS=$(expr $CHECKINTERVAL \* 60)
+        # Wait until the next check interval
+        sleep "$CHECKINTERVALSECS"
+    fi
 done
 
 exit 0
